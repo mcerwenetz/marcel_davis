@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from secret import API_KEY
 from telebot import TeleBot, types
 from pathlib import Path
+import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -59,6 +60,20 @@ def create_abos():
     abos = Path(conf.ABO_FILENAME)
     abos.touch(exist_ok=True)
 
+
+def create_URLs(URL) -> tuple[str, str]:
+    today = datetime.datetime.now()
+    next_week = today +datetime.timedelta(days=7)
+
+    delim = """%25%25%2d"""
+    timestamp_today = "2024"+ delim  + str(today.month) + delim + str(today.day)
+    timestamp_next_week = "2024"+ delim  + str(next_week.month) + delim + str(next_week.day)
+
+    URL_THIS_WEEK = URL[0] + timestamp_today + URL[1]
+    URL_NEXT_WEEK = URL[0] + timestamp_next_week + URL[1]
+
+    return (URL_THIS_WEEK, URL_NEXT_WEEK)
+    
 
 def cache_all_menus():
     "caches all menus as files"
