@@ -13,7 +13,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from systemd.journal import JournalHandler
 
 
-
 bot = TeleBot(API_KEY)
 
 
@@ -28,6 +27,7 @@ def parse_week(match):
     data = [ele.replace("`", "'") for ele in data]
     return data
 
+
 def download_hsma_week():
     with requests.get(conf.URL_HSMA_WEEK, timeout=5) as url:
         soup = BeautifulSoup(url.content)
@@ -37,7 +37,7 @@ def download_hsma_week():
         menu = "".join(data)
     else:
         menu = "Hochschulmensa hat zu 💩"
-    
+
     with open(conf.HSMA_WEEK_FILENAME, 'w', encoding='utf-8') as file:
         file.write(menu)
 
@@ -63,17 +63,19 @@ def create_abos():
 
 def create_URLs(URL) -> tuple[str, str]:
     today = datetime.datetime.now()
-    next_week = today +datetime.timedelta(days=7)
+    next_week = today + datetime.timedelta(days=7)
 
     delim = """%25252d"""
-    timestamp_today = str(today.year)+ delim  + str(today.month) + delim + str(today.day)
-    timestamp_next_week = str(next_week.year) + delim  + str(next_week.month) + delim + str(next_week.day)
+    timestamp_today = str(today.year) + delim + \
+        str(today.month) + delim + str(today.day)
+    timestamp_next_week = str(next_week.year) + delim + \
+        str(next_week.month) + delim + str(next_week.day)
 
     URL_THIS_WEEK = URL[0] + timestamp_today + URL[1]
     URL_NEXT_WEEK = URL[0] + timestamp_next_week + URL[1]
 
     return (URL_THIS_WEEK, URL_NEXT_WEEK)
-    
+
 
 def cache_all_menus():
     "caches all menus as files"
@@ -150,7 +152,7 @@ def abo(message):
     chatid = str(message.chat.id)
     with open(conf.ABO_FILENAME, 'r', encoding="utf-8") as abofile:
         for line in abofile:
-            all_abos.append(line.replace("\n",""))
+            all_abos.append(line.replace("\n", ""))
     if chatid not in all_abos:
         all_abos.append(chatid)
         bot.reply_to(
@@ -168,6 +170,7 @@ def abo(message):
     with open(conf.ABO_FILENAME, 'w', encoding="utf-8") as abofile:
         for abo in all_abos:
             abofile.write("%s\n" % abo)
+
 
 def send_all_abos():
     all_abos = []
