@@ -1,6 +1,5 @@
 TIMEOUT = 5
 HSMA_WEEK_FILENAME = "hsma_week_menu.txt"
-HSMA_FILENAME = "hsma_menu.txt"
 UNIMA_WEEK_FILENAME = "unima_week_menu.txt"
 ABO_FILENAME = "abos.txt"
 

@@ -160,11 +160,13 @@ def send_all_abos():
         for line in abofile:
             all_abos.append(line)
     log.info(f"sending abos. currently there are {len(all_abos)} abos")
-    with open(conf.HSMA_FILENAME, 'r', encoding="utf-8") as file:
+    with open(conf.HSMA_WEEK_FILENAME, 'r', encoding="utf-8") as file:
         menu = file.read()
-        if len(all_abos) > 0:
-            for chat_id in all_abos:
-                bot.send_message(chat_id, menu)
+    menu = menu.split("*")
+    menu = menu[1]
+    if len(all_abos) > 0:
+        for chat_id in all_abos:
+            bot.send_message(chat_id, menu)
 
 
 def bot_poll():
