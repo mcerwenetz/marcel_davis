@@ -1,14 +1,11 @@
 #!/usr/bin/env python3
 import logging
 import requests
-import bs4
-import re
 import tgbot_config as conf
 from bs4 import BeautifulSoup
 from secret import API_KEY
 from telebot import TeleBot, types
 from pathlib import Path
-from datetime import datetime
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -91,8 +88,11 @@ def replace_paranthesis(stri):
 @bot.message_handler(commands=['mensa'])
 def mensa(message):
     log.info("mensa was called")
-    with open(conf.HSMA_FILENAME, 'r', encoding="utf-8") as file:
+    with open(conf.HSMA_WEEK_FILENAME, 'r', encoding="utf-8") as file:
         menu = file.read()
+    menu = menu.split("*")
+
+    menu = menu[1]
     bot.reply_to(message, menu, parse_mode='Markdown')
 
 
