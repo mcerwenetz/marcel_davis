@@ -65,7 +65,7 @@ def create_URLs(URL) -> tuple[str, str]:
     today = datetime.datetime.now()
     next_week = today +datetime.timedelta(days=7)
 
-    delim = """%25%25%2d"""
+    delim = """%25252d"""
     timestamp_today = "2024"+ delim  + str(today.month) + delim + str(today.day)
     timestamp_next_week = "2024"+ delim  + str(next_week.month) + delim + str(next_week.day)
 
