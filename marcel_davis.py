@@ -222,9 +222,12 @@ def run_scheduler():
 def set_options():
     bot.set_my_commands([
         types.BotCommand("/help", "Hilfe"),
-        types.BotCommand("/hsma_today", "HS-Mensamenü des Tages"),
-        types.BotCommand("/mensa_week", "Mensamenü der Woche"),
-        types.BotCommand("/unimensa_week", "unimensamenu der woche"),
+        types.BotCommand("/hsma_today", "HS Mensamenü des Tages"),
+        types.BotCommand("/hsma_this_week", "HS Mensamenü der Woche"),
+        types.BotCommand("/hsma_next_week", "HS Mensamenü der nächsten Woche"),
+        types.BotCommand("/uni_today", "Uni Mensamenü des Tages"),
+        types.BotCommand("/uni_this_week", "Uni Mensamenü der Woche"),
+        types.BotCommand("/uni_next_week", "Uni Mensamenü der nächsten Woche"),
         types.BotCommand("/abo", "(De)Abboniere den Täglichen Mensareport"),
     ]
     )
