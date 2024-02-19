@@ -17,3 +17,5 @@ ABO_KEY = "abos"
 SOUP_STRING = "active1"
 
 SHELVE_FILE_NAME = "file.shelf"
+
+MENSA_CLOSED_STRING="Hochschulmensa hat zu 💩"

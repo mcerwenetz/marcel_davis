@@ -20,18 +20,18 @@ class DownloadConf():
 
     class Types():
         NotInit = "NotInit"
-        Uni= "Uni"
+        Uni = "Uni"
         HS = "HS"
 
     def __init__(self, typ, week_key, next_week_key, url) -> None:
         self.typ = typ
         self.week_key = week_key
         self.next_week_key = next_week_key
-        self.url : list[str] = url
+        self.url: list[str] = url
 
 
 menus = {}
-download_confs : list[DownloadConf] = []
+download_confs: list[DownloadConf] = []
 
 
 def parse_week(match) -> list[str]:
@@ -59,12 +59,11 @@ def get_all_menus():
                 data = parse_week(match)
                 menus[download_conf.typ][week] = data
             else:
-                menus[download_conf.typ][week] = "Hochschulmensa hat zu 💩"
+                menus[download_conf.typ][week] = conf.MENSA_CLOSED_STRING
             timedelta += 7
 
     with shelve.open(conf.SHELVE_FILE_NAME) as file:
         file["menus"] = menus
-
 
 
 def create_URL(URL, timedelta) -> tuple[str, str]:
@@ -76,10 +75,7 @@ def create_URL(URL, timedelta) -> tuple[str, str]:
     url_timestamp = str(timestamp.year) + delim + \
         str(timestamp.month) + delim + str(timestamp.day)
 
-
     return URL[0] + url_timestamp + URL[1]
-
-  
 
 
 @bot.message_handler(commands=["start", "help"])
@@ -89,14 +85,13 @@ def start(message):
     bot.reply_to(message, welcome_string)
 
 
-
 @bot.message_handler(commands=['hsma_today'])
 def hsma_today(message):
     log.info("hsma_today was called")
-    # if it's saturday or sunday show friday
-    weekday : int = datetime.datetime.now().weekday() 
+    # if it's saturday or sunday dont show
+    weekday: int = datetime.datetime.now().weekday()
     if weekday > 4:
-        menu = "Hochschulmensa hat zu 💩"
+        menu = conf.MENSA_CLOSED_STRING
     else:
         menu = menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY][weekday]
     bot.reply_to(message, menu, parse_mode='Markdown')
@@ -105,19 +100,23 @@ def hsma_today(message):
 @bot.message_handler(commands=['hsma_this_week'])
 def hsma_this_week(message):
     log.info("mensaweek was called")
-    
+
     for day in menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY]:
         bot.reply_to(message, day, parse_mode="Markdown")
-    return [day for day in  menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY]]
+    return [day for day in menus[DownloadConf.Types.HS]
+            [conf.HSMA_MENSA_THIS_WEEK_KEY]]
+
 
 @bot.message_handler(commands=['hsma_next_week'])
 def hsma_next_week(message):
     log.info("hsma_next_week was called")
-    
+
     for day in menus[DownloadConf.Types.HS][conf.HSMA_MENSA_NEXT_WEEK_KEY]:
         bot.reply_to(message, day, parse_mode="Markdown")
 
-    # return [day for day in  menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY]]
+    # return [day for day in
+    # menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY]]
+
 
 @bot.message_handler(commands=['uni_today'])
 def uni_today(message):
@@ -129,25 +128,23 @@ def uni_today(message):
 @bot.message_handler(commands=['uni_this_week'])
 def uni_this_week(message):
     log.info("mensaweek was called")
-    
+
     for day in menus[DownloadConf.Types.Uni][conf.UNI_MENSA_THIS_WEEK_KEY]:
         bot.reply_to(message, day, parse_mode="Markdown")
+
 
 @bot.message_handler(commands=['uni_next_week'])
 def uni_next_week(message):
     log.info("hsma_next_week was called")
-    
+
     for day in menus[DownloadConf.Types.Uni][conf.UNI_MENSA_NEXT_WEEK_KEY]:
         bot.reply_to(message, day, parse_mode="Markdown")
-
-
-
 
 
 @bot.message_handler(commands=['abo'])
 def abo(message):
     chatid = int(message.chat.id)
-    abos : list[int] = []
+    abos: list[int] = []
     with shelve.open(conf.SHELVE_FILE_NAME) as file:
         if conf.ABO_KEY not in file:
             file[conf.ABO_KEY] = []
@@ -170,7 +167,7 @@ def abo(message):
 
 
 def send_all_abos():
-    abos : list[int] = []
+    abos: list[int] = []
     with shelve.open(conf.SHELVE_FILE_NAME) as file:
         abos = file[conf.ABO_KEY]
     log.info("sending abos. currently there are %d abos" % {len(abos)})
@@ -188,6 +185,7 @@ def bot_poll():
         bot.polling(none_stop=True, timeout=120)
         # except requests.exceptions.ReadTimeout:
         #     print("Timeout connecting to Telegram")
+
 
 def run_scheduler():
     log.info("running scheduler")
@@ -245,13 +243,13 @@ def startup(download_confs):
         conf.UNI_MENSA_NEXT_WEEK_KEY,
         conf.URL_UNI_WEEK
     )
-    
+
     hsma_mensa_download_conf = DownloadConf(
         DownloadConf.Types.HS,
         conf.HSMA_MENSA_THIS_WEEK_KEY,
         conf.HSMA_MENSA_NEXT_WEEK_KEY,
         conf.URL_HSMA_WEEK)
-    
+
     download_confs += [uni_mensa_download_conf, hsma_mensa_download_conf]
 
     menus[DownloadConf.Types.HS] = {}
@@ -261,6 +259,7 @@ def startup(download_confs):
     menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY] = []
     menus[DownloadConf.Types.Uni][conf.UNI_MENSA_THIS_WEEK_KEY] = []
     menus[DownloadConf.Types.Uni][conf.UNI_MENSA_NEXT_WEEK_KEY] = []
+
 
 def main():
     log.info("running background tasks")
