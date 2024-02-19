@@ -5,18 +5,36 @@ import tgbot_config as conf
 from bs4 import BeautifulSoup
 from secret import API_KEY
 from telebot import TeleBot, types
-from pathlib import Path
 import datetime
+import shelve
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from systemd.journal import JournalHandler
+# from systemd.journal import JournalHandler
 
 
-bot = TeleBot(API_KEY)
+bot = TeleBot(token=API_KEY)
 
 
-def parse_week(match):
+class DownloadConf():
+
+    class Types():
+        NotInit = "NotInit"
+        Uni= "Uni"
+        HS = "HS"
+
+    def __init__(self, typ, week_key, next_week_key, url) -> None:
+        self.typ = typ
+        self.week_key = week_key
+        self.next_week_key = next_week_key
+        self.url : list[str] = url
+
+
+menus = {}
+download_confs : list[DownloadConf] = []
+
+
+def parse_week(match) -> list[str]:
     data = [ele.text for ele in match]
     data = [ele.replace("\t", '').replace("\n\n\n", "\n\n") for ele in data]
     data = [ele.replace("Montag", "*Montag*") for ele in data]
@@ -28,61 +46,41 @@ def parse_week(match):
     return data
 
 
-def download_hsma_week():
-    with requests.get(conf.URL_HSMA_WEEK, timeout=5) as url:
-        soup = BeautifulSoup(url.content)
-    match = soup.find_all(class_='active1')
-    if match is not None:
-        data = parse_week(match)
-        menu = "".join(data)
-    else:
-        menu = "Hochschulmensa hat zu 💩"
+def get_all_menus():
+    for download_conf in download_confs:
+        weeks = (download_conf.week_key, download_conf.next_week_key)
+        
+        for week in weeks:
+            timedelta = 0
+            url = create_URL(download_conf.url, timedelta)
+            with requests.get(url, timeout=5) as request:
+                soup = BeautifulSoup(request.content, features="lxml")
+            match = soup.find_all(class_=conf.SOUP_STRING)
+            if match is not None:
+                data = parse_week(match)
+                menus[download_conf.typ][week] = data
+            else:
+                menus[download_conf.typ][week] = "Hochschulmensa hat zu 💩"
+            timedelta += 7
 
-    with open(conf.HSMA_WEEK_FILENAME, 'w', encoding='utf-8') as file:
-        file.write(menu)
-
-
-def download_unima_week():
-    with requests.get(conf.URL_UNI_WEEK, timeout=5) as url:
-        soup = BeautifulSoup(url.content)
-    match = soup.find_all(class_='active1')
-    if match is not None:
-        data = parse_week(match)
-        menu = "".join(data)
-    else:
-        menu = "Unimensa hat zu 💩"
-
-    with open(conf.UNIMA_WEEK_FILENAME, 'w', encoding='utf-8') as file:
-        file.write(menu)
+    with shelve.open(conf.SHELVE_FILE_NAME) as file:
+        file["menus"] = menus
 
 
-def create_abos():
-    abos = Path(conf.ABO_FILENAME)
-    abos.touch(exist_ok=True)
 
-
-def create_URLs(URL) -> tuple[str, str]:
+def create_URL(URL, timedelta) -> tuple[str, str]:
     today = datetime.datetime.now()
-    next_week = today + datetime.timedelta(days=7)
+
+    timestamp = today + datetime.timedelta(days=timedelta)
 
     delim = """%25252d"""
-    timestamp_today = str(today.year) + delim + \
-        str(today.month) + delim + str(today.day)
-    timestamp_next_week = str(next_week.year) + delim + \
-        str(next_week.month) + delim + str(next_week.day)
-
-    URL_THIS_WEEK = URL[0] + timestamp_today + URL[1]
-    URL_NEXT_WEEK = URL[0] + timestamp_next_week + URL[1]
-
-    return (URL_THIS_WEEK, URL_NEXT_WEEK)
+    url_timestamp = str(timestamp.year) + delim + \
+        str(timestamp.month) + delim + str(timestamp.day)
 
 
-def cache_all_menus():
-    "caches all menus as files"
-    log.info("caching menus")
-    download_hsma_week()
-    download_unima_week()
-    # download_test()
+    return URL[0] + url_timestamp + URL[1]
+
+  
 
 
 @bot.message_handler(commands=["start", "help"])
@@ -92,114 +90,106 @@ def start(message):
     bot.reply_to(message, welcome_string)
 
 
-def replace_paranthesis(stri):
-    para_auf = [i for i in range(len(stri)) if stri[i] == "("]
-    para_zu = [i for i in range(len(stri)) if stri[i] == ")"]
-    para = list(zip(para_auf, para_zu))
-    words = [stri[pair[0] - 1:pair[1] + 1] for pair in para]
-    for word in words:
-        stri = stri.replace(word, " ")
-    return stri
+
+@bot.message_handler(commands=['hsma_today'])
+def hsma_today(message):
+    log.info("hsma_today was called")
+    menu = menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY][0]
+    # bot.reply_to(message, menu, parse_mode='Markdown')
+    return menu
 
 
-@bot.message_handler(commands=['mensa'])
-def mensa(message):
-    log.info("mensa was called")
-    with open(conf.HSMA_WEEK_FILENAME, 'r', encoding="utf-8") as file:
-        menu = file.read()
-    menu = menu.split("*")
+@bot.message_handler(commands=['hsma_this_week'])
+def hsma_this_week(message):
+    log.info("mensaweek was called")
+    
+    # for day in menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY]:
+    #     bot.reply_to(message, day, parse_mode="Markdown")
+    return [day for day in  menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY]]
 
-    menu = menu[1]
+@bot.message_handler(commands=['hsma_next_week'])
+def hsma_next_week(message):
+    log.info("hsma_next_week was called")
+    
+    # for day in menus[DownloadConf.Types.HS][conf.HSMA_MENSA_NEXT_WEEK_KEY]:
+    #     bot.reply_to(message, day, parse_mode="Markdown")
+
+    return [day for day in  menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY]]
+
+@bot.message_handler(commands=['uni_today'])
+def uni_today(message):
+    log.info("hsma_today was called")
+    menu = menus[DownloadConf.Types.Uni][conf.UNI_MENSA_THIS_WEEK_KEY][0]
     bot.reply_to(message, menu, parse_mode='Markdown')
 
 
-@bot.message_handler(commands=['mensa_week'])
-def mensa_week(message):
+@bot.message_handler(commands=['uni_this_week'])
+def uni_this_week(message):
     log.info("mensaweek was called")
-    with open(conf.HSMA_WEEK_FILENAME, 'r', encoding="utf-8") as file:
-        menu = file.read()
-    menu_days = menu.split("*")
+    
+    for day in menus[DownloadConf.Types.Uni][conf.UNI_MENSA_THIS_WEEK_KEY]:
+        bot.reply_to(message, day, parse_mode="Markdown")
 
-    menu_days = menu_days[1:]
-
-    menu_days = [menu_days[i] + menu_days[i + 1]
-                 for i in range(0, len(menu_days) - 1, 2)]
-
-    for day in menu_days:
+@bot.message_handler(commands=['uni_next_week'])
+def uni_next_week(message):
+    log.info("hsma_next_week was called")
+    
+    for day in menus[DownloadConf.Types.Uni][conf.UNI_MENSA_NEXT_WEEK_KEY]:
         bot.reply_to(message, day, parse_mode="Markdown")
 
 
-@bot.message_handler(commands=['unimensa_week'])
-def uni_mensa(message):
-    log.info("unimensa was called")
-    with open(conf.UNIMA_WEEK_FILENAME, 'r', encoding="utf-8") as file:
-        menu = file.read()
 
-    menu_days = menu.split("*")
-
-    menu_days = menu_days[1:]
-
-    menu_days = [menu_days[i] + menu_days[i + 1]
-                 for i in range(0, len(menu_days) - 1, 2)]
-
-    for day in menu_days:
-        bot.reply_to(message, day, parse_mode="Markdown")
 
 
 @bot.message_handler(commands=['abo'])
 def abo(message):
-    all_abos = []
-    chatid = str(message.chat.id)
-    with open(conf.ABO_FILENAME, 'r', encoding="utf-8") as abofile:
-        for line in abofile:
-            all_abos.append(line.replace("\n", ""))
-    if chatid not in all_abos:
-        all_abos.append(chatid)
-        bot.reply_to(
-            message,
-            "du wirst jetzt täglich Infos zur mensa erhalten")
-        log.info(f"added chat with chatid {chatid}")
-    else:
-        all_abos.remove(chatid)
-        bot.reply_to(
-            message,
-            "du wirst jetzt täglich **keine** Infos zur mensa erhalten",
-            parse_mode="markdown")
-        log.info(f"removed chat with chatid {chatid}")
+    chatid = int(message.chat.id)
+    abos : list[int] = []
+    with shelve.open(conf.SHELVE_FILE_NAME) as file:
+        abos = file[conf.ABO_KEY]
+        if chatid not in abos:
+            abos.append(chatid)
+            bot.reply_to(
+                message,
+                "du wirst jetzt täglich Infos zur mensa erhalten")
+            log.info(f"added chat with chatid {chatid}")
+        else:
+            abos.remove(chatid)
+            bot.reply_to(
+                message,
+                "du wirst jetzt täglich **keine** Infos zur mensa erhalten",
+                parse_mode="markdown")
+            log.info(f"removed chat with chatid {chatid}")
 
-    with open(conf.ABO_FILENAME, 'w', encoding="utf-8") as abofile:
-        for abo in all_abos:
-            abofile.write("%s\n" % abo)
+        file[conf.ABO_KEY] = abos
 
 
 def send_all_abos():
-    all_abos = []
-    with open(conf.ABO_FILENAME, 'r', encoding="utf-8") as abofile:
-        for line in abofile:
-            all_abos.append(line)
-    log.info(f"sending abos. currently there are {len(all_abos)} abos")
-    with open(conf.HSMA_WEEK_FILENAME, 'r', encoding="utf-8") as file:
-        menu = file.read()
-    menu = menu.split("*")
-    menu = menu[1]
-    if len(all_abos) > 0:
-        for chat_id in all_abos:
+    abos : list[int] = []
+    with shelve.open(conf.SHELVE_FILE_NAME) as file:
+        abos = file[conf.ABO_KEY]
+    log.info(f"sending abos. currently there are {len(abos)} abos")
+    menu = ""
+    if len(abos) > 0:
+        for chat_id in abos:
             bot.send_message(chat_id, menu)
 
 
 def bot_poll():
     # pass
     while True:
+        # try:
         log.info("polling msgs")
-        bot.infinity_polling()
-
+        bot.polling(none_stop=True, timeout=120)
+        # except requests.exceptions.ReadTimeout:
+        #     print("Timeout connecting to Telegram")
 
 def run_scheduler():
     log.info("running scheduler")
     sched = BackgroundScheduler()
     sched.configure(timezone='Europe/Rome')
     sched.add_job(
-        cache_all_menus,
+        get_all_menus,
         'cron',
         year="*",
         month="*",
@@ -224,13 +214,37 @@ def run_scheduler():
 def set_options():
     bot.set_my_commands([
         types.BotCommand("/help", "Hilfe"),
-        types.BotCommand("/mensa", "Mensamenü des Tages"),
+        types.BotCommand("/hsma_today", "HS-Mensamenü des Tages"),
         types.BotCommand("/mensa_week", "Mensamenü der Woche"),
         types.BotCommand("/unimensa_week", "unimensamenu der woche"),
         types.BotCommand("/abo", "(De)Abboniere den Täglichen Mensareport"),
     ]
     )
 
+
+def startup(download_confs):
+    uni_mensa_download_conf = DownloadConf(
+        DownloadConf.Types.Uni,
+        conf.UNI_MENSA_THIS_WEEK_KEY,
+        conf.UNI_MENSA_NEXT_WEEK_KEY,
+        conf.URL_UNI_WEEK
+    )
+    
+    hsma_mensa_download_conf = DownloadConf(
+        DownloadConf.Types.HS,
+        conf.HSMA_MENSA_THIS_WEEK_KEY,
+        conf.HSMA_MENSA_NEXT_WEEK_KEY,
+        conf.URL_HSMA_WEEK)
+    
+    download_confs += [uni_mensa_download_conf, hsma_mensa_download_conf]
+
+    menus[DownloadConf.Types.HS] = {}
+    menus[DownloadConf.Types.Uni] = {}
+
+    menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY] = []
+    menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY] = []
+    menus[DownloadConf.Types.Uni][conf.UNI_MENSA_THIS_WEEK_KEY] = []
+    menus[DownloadConf.Types.Uni][conf.UNI_MENSA_NEXT_WEEK_KEY] = []
 
 def main():
     log.info("running background tasks")
@@ -241,11 +255,11 @@ def main():
 
 if __name__ == '__main__':
     log = logging.getLogger("marcel_davis")
-    log.addHandler(JournalHandler())
+    # log.addHandler(JournalHandler())
     log.setLevel(logging.INFO)
-    # logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO)
     log.info("starting bot")
-    cache_all_menus()
-    create_abos()
+    startup(download_confs=download_confs)
+    get_all_menus()
     log.info("running mainloop")
     main()
