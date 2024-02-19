@@ -209,7 +209,7 @@ def run_scheduler():
         month="*",
         day_of_week="0-4",
         # day="*",
-        hour=7
+        hour=7,
         # hour="*",
         minute=0,
         # minute="*",
