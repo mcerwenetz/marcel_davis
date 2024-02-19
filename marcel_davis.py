@@ -93,7 +93,12 @@ def start(message):
 @bot.message_handler(commands=['hsma_today'])
 def hsma_today(message):
     log.info("hsma_today was called")
-    menu = menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY][0]
+    # if it's saturday or sunday show friday
+    weekday : int = datetime.datetime.now().weekday() 
+    if weekday > 4:
+        menu = "Hochschulmensa hat zu 💩"
+    else:
+        menu = menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY][weekday]
     bot.reply_to(message, menu, parse_mode='Markdown')
 
 
@@ -152,14 +157,14 @@ def abo(message):
             bot.reply_to(
                 message,
                 "du wirst jetzt täglich Infos zur mensa erhalten")
-            log.info(f"added chat with chatid {chatid}")
+            log.info("added chat with chatid %d" % chatid)
         else:
             abos.remove(chatid)
             bot.reply_to(
                 message,
                 "du wirst jetzt täglich **keine** Infos zur mensa erhalten",
                 parse_mode="markdown")
-            log.info(f"removed chat with chatid {chatid}")
+            log.info("removed chat with chatid %d" % chatid)
 
         file[conf.ABO_KEY] = abos
 
@@ -168,7 +173,7 @@ def send_all_abos():
     abos : list[int] = []
     with shelve.open(conf.SHELVE_FILE_NAME) as file:
         abos = file[conf.ABO_KEY]
-    log.info(f"sending abos. currently there are {len(abos)} abos")
+    log.info("sending abos. currently there are %d abos" % {len(abos)})
     menu = menus[DownloadConf.Types.HS][conf.HSMA_MENSA_THIS_WEEK_KEY][0]
     if len(abos) > 0:
         for chat_id in abos:
