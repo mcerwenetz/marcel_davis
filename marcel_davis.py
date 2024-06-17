@@ -8,6 +8,8 @@ from tgbot_config import API_KEY
 from telebot import TeleBot, types
 from pathlib import Path
 from datetime import datetime
+import locale
+
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -15,65 +17,35 @@ from systemd.journal import JournalHandler
 
 TIMEOUT = 5
 HSMA_WEEK_FILENAME = "hsma_week_menu.txt"
-HSMA_FILENAME = "hsma_menu.txt"
 UNIMA_WEEK_FILENAME = "unima_week_menu.txt"
 ABO_FILENAME = "abos.txt"
 
 bot = TeleBot(API_KEY)
 
 
-def parse_week(match):
-    data = [ele.text for ele in match]
-    data = [ele.replace("\t", '').replace("\n\n\n", "\n\n") for ele in data]
-    data = [ele.replace("Montag", "*Montag*") for ele in data]
-    data = [ele.replace("Dienstag", "*Dienstag*") for ele in data]
-    data = [ele.replace("Mittwoch", "*Mittwoch*") for ele in data]
-    data = [ele.replace("Donnerstag", "*Donnerstag*") for ele in data]
-    data = [ele.replace("Freitag", "*Freitag*") for ele in data]
-    data = [ele.replace("`", "'") for ele in data]
-    return data
+def download_hsma_week():
+    url = "https://openmensa.org/api/v2/canteens/289/meals"
 
+    response = requests.get(url)
 
-def download_hsma():
-    URL = "https://www.stw-ma.de/Essen+_+Trinken/Speisepl%C3%A4ne/Hochschule+Mannheim.html"
-
-    with requests.get(URL, timeout=5) as url:
-        soup = BeautifulSoup(url.content, features="lxml")
-    match = soup.find(class_='speiseplan-table')
+    # Check if the request was successful (status code 200)
+    data = response.json()
 
     menu = ""
-    if match is not None:
-        for row in match:
-            if not isinstance(row, bs4.element.NavigableString):
-                cells = row.find_all("td")
-                del cells[-2]
-                for cell in cells:
-                    # log.info(cell)
-                    stri = cell.get_text()
-                    result = re.sub(r'[\t\n]+', '', stri)
-                    result = re.sub(r'\€Stück|€Portion|€pro100g', '€', result)
-                    menu += result + "\n"
-                menu += "\n"
-        curr_day = datetime.today().strftime("%A")
-        menu = curr_day + "\n\n" + menu
-    else:
-        menu = "Es konnte kein Menü gefunden werden."
+    for day in data:
+        if day["closed"] is True:
+            continue
+        date = datetime.datetime.strptime(day[date], "%Y-%m-%d")
+        weekday = date.strftime("%A")
+        menu += f"**{weekday}**"
 
-        
-    with open(HSMA_FILENAME, 'w', encoding='utf-8') as file:
-        file.write(menu)
+        meals = day[meals]
+        for meal in meals:
+            category = meal["category"]
+            meanu += "\n"
+            menu += f"*{category}*"
+            menu += "\n\n" +  meal["name"] + str(meal["prices"]["students"])
 
-
-def download_hsma_week():
-    with requests.get("https://www.stw-ma.de/Essen+_+Trinken/Speisepl%C3%A4ne/Hochschule+Mannheim-view-week.html", timeout=5) as url:
-        soup = BeautifulSoup(url.content)
-    match = soup.find_all(class_='active1')
-    if match is not None:
-        data = parse_week(match)
-        menu = "".join(data)
-    else:
-        menu = "Es konnte kein Menü gefunden werden."
-    
     with open(HSMA_WEEK_FILENAME, 'w', encoding='utf-8') as file:
         file.write(menu)
 
@@ -248,6 +220,7 @@ def set_options():
 
 
 def main():
+    locale.setlocale(locale.LC_ALL, "de_DE.UTF-8")
     log.info("running background tasks")
     set_options()
     run_scheduler()
